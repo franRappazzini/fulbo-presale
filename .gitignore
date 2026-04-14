@@ -8,3 +8,7 @@ test-ledger
 .surfpool
 
 *.todo
+runbooks/
+clients/
+codama.json
+txtx.yml

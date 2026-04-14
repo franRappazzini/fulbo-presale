@@ -6,13 +6,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-fulbo_presale = "preYE2fYthZLnc49qfRywsp1NdEonYmv4Dyxih6nyQj"
+fulbo_presale = "BDynxxaaLpprmBdoRaAtsrbXpwfVjXuhXH1Ghhyv5khT"
 
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "cargo test"
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.test.ts\""
 
 [hooks]

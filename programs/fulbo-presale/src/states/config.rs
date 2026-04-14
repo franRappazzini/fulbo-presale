@@ -1,12 +1,13 @@
 use anchor_lang::prelude::*;
 
-use crate::DISCRIMINATOR;
+use crate::constants::DISCRIMINATOR;
 
 #[account]
 #[derive(InitSpace)]
 pub struct Config {
     pub authority: Pubkey,
     pub mint: Pubkey,
+    pub chainlink_feed: Pubkey,
 
     pub stages: [Stage; 11],
 
@@ -27,8 +28,8 @@ pub struct Stage {
     pub max_tokens: u64,
     pub tokens_sold: u64,
     pub raised_sol: u64,
-    pub locked_percentage: u8,
-    pub max_wallet_percentage: u8,
+    pub locked_pct_bps: u16,
+    pub max_wallet_pct_bps: u16,
 }
 
 impl Config {
