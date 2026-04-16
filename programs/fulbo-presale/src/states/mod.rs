@@ -1,5 +1,5 @@
 pub mod config;
-pub mod recipient;
+pub mod position;
 pub mod treasury;
 
-pub use {config::*, recipient::*, treasury::*};
+pub use {config::*, position::*, treasury::*};

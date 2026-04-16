@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::DISCRIMINATOR;
+use crate::{constants::DISCRIMINATOR, error::ErrorCode};
 
 #[account]
 #[derive(InitSpace)]
@@ -34,4 +34,34 @@ pub struct Stage {
 
 impl Config {
     pub const SIZE: usize = DISCRIMINATOR + Config::INIT_SPACE;
+
+    pub fn add_sol_raised(&mut self, amount: u64) -> Result<()> {
+        self.total_sol_raised = self
+            .total_sol_raised
+            .checked_add(amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        self.stages[self.current_stage as usize].raised_sol = self.stages
+            [self.current_stage as usize]
+            .raised_sol
+            .checked_add(amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        Ok(())
+    }
+
+    pub fn add_tokens_sold(&mut self, amount: u64) -> Result<()> {
+        self.total_tokens_sold = self
+            .total_tokens_sold
+            .checked_add(amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        self.stages[self.current_stage as usize].tokens_sold = self.stages
+            [self.current_stage as usize]
+            .tokens_sold
+            .checked_add(amount)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        Ok(())
+    }
 }

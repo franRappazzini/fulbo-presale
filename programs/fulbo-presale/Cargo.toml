@@ -21,7 +21,7 @@ custom-panic = []
 
 
 [dependencies]
-anchor-lang = "1.0.0"
+anchor-lang = { version = "1.0.0", features = ["init-if-needed"]}
 chainlink_solana = "2.0.8"
 
 [lints.rust]

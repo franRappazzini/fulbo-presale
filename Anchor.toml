@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-fulbo_presale = "BDynxxaaLpprmBdoRaAtsrbXpwfVjXuhXH1Ghhyv5khT"
+fulbo_presale = "4q6B6GdbbijEHxnhXVx8mDsiHfgk5b9bCVB8PqtA1bDJ"
 
 [provider]
 cluster = "localnet"

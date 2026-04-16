@@ -7,3 +7,6 @@ pub const CONFIG_SEED: &[u8] = b"config";
 
 #[constant]
 pub const TREASURY_SEED: &[u8] = b"treasury";
+
+#[constant]
+pub const POSITION_SEED: &[u8] = b"position";
