@@ -1,9 +1,10 @@
 {
   "license": "ISC",
   "scripts": {
-    "test": "anchor test --skip-local-validator --skip-build --skip-deploy",
-    "dev:test": "anchor test --skip-local-validator --skip-build --skip-deploy --provider.cluster devnet",
-    "dev:deploy": "anchor build && solana program deploy target/deploy/fulbo_presale.so -ud",
+    "test": "anchor test --skip-local-validator --skip-build --skip-deploy --provider.cluster localnet",
+    "deploy": "anchor build && solana program deploy target/deploy/fulbo_presale.so -ul",
+    "test:dev": "anchor test --skip-local-validator --skip-build --skip-deploy --provider.cluster devnet",
+    "deploy:dev": "anchor build && solana program deploy target/deploy/fulbo_presale.so -ud",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },

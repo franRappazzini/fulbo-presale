@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{constants::DISCRIMINATOR, error::ErrorCode};
+use crate::{constants::DISCRIMINATOR, error::ErrorCode, states::PurchaseResult};
 
 #[account]
 #[derive(InitSpace)]
@@ -19,26 +19,50 @@ pub struct Position {
 impl Position {
     pub const SIZE: usize = DISCRIMINATOR + Position::INIT_SPACE;
 
-    pub fn purchase(&mut self, current_stage: u8, amount: u64, sol_paid: u64) -> Result<()> {
+    pub fn purchase(&mut self, result: &PurchaseResult) -> Result<()> {
+        let total_tokens = result.tokens + result.overflow.map(|(_, t, _, _)| t).unwrap_or(0);
+        let total_lamports = result.lamports + result.overflow.map(|(_, _, l, _)| l).unwrap_or(0);
+
         self.total_tokens = self
             .total_tokens
-            .checked_add(amount)
+            .checked_add(total_tokens)
             .ok_or(ErrorCode::MathOverflow)?;
 
         self.total_sol = self
             .total_sol
-            .checked_add(sol_paid)
+            .checked_add(total_lamports)
             .ok_or(ErrorCode::MathOverflow)?;
 
-        let stage_alloc = &mut self.stage_allocations[current_stage as usize];
-        stage_alloc.tokens = stage_alloc
+        // update current stage
+        let alloc = &mut self.stage_allocations[result.stage as usize];
+        alloc.tokens = alloc
             .tokens
-            .checked_add(amount)
+            .checked_add(result.tokens)
             .ok_or(ErrorCode::MathOverflow)?;
-        stage_alloc.sol_paid = stage_alloc
+        alloc.sol_paid = alloc
             .sol_paid
-            .checked_add(sol_paid)
+            .checked_add(result.lamports)
             .ok_or(ErrorCode::MathOverflow)?;
+
+        if alloc.locked_pct_bps == 0 {
+            alloc.locked_pct_bps = result.locked_pct_bps;
+        }
+
+        // update overflow stage if present
+        if let Some((stage, tokens, lamports, locked_pct_bps)) = result.overflow {
+            let overflow_alloc = &mut self.stage_allocations[stage as usize];
+            overflow_alloc.tokens = overflow_alloc
+                .tokens
+                .checked_add(tokens)
+                .ok_or(ErrorCode::MathOverflow)?;
+
+            overflow_alloc.sol_paid = overflow_alloc
+                .sol_paid
+                .checked_add(lamports)
+                .ok_or(ErrorCode::MathOverflow)?;
+
+            overflow_alloc.locked_pct_bps = locked_pct_bps;
+        }
 
         Ok(())
     }

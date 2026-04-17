@@ -52,7 +52,10 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
         position.bump = ctx.bumps.position;
     }
 
+    // TODO: replace with actual price fetching from chainlink oracle
     let (sol_price, oracle_decimals) = get_sol_price(&ctx.accounts.chainlink_feed)?;
+    // let sol_price = 9000000000;
+    // let oracle_decimals = 8;
 
     msg!("Price: {}", sol_price);
     msg!("Decimals: {}", oracle_decimals);
@@ -77,9 +80,7 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
 
     // update config account
     let config = &mut ctx.accounts.config;
-    // TODO: calcular no overflow stage
-    config.add_sol_raised(lamports)?;
-    config.add_tokens_sold(amount)?;
+    let purchase_result = config.add_purchase(amount, lamports)?;
 
     // update treasury account
     let treasury = &mut ctx.accounts.treasury;
@@ -90,7 +91,7 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
 
     // update position account
     let position = &mut ctx.accounts.position;
-    position.purchase(config.current_stage, amount, lamports)
+    position.purchase(&purchase_result)
 }
 
 fn get_sol_price(feed: &UncheckedAccount) -> Result<(i128, u8)> {

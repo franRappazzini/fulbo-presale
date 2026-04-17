@@ -12,4 +12,6 @@ pub enum ErrorCode {
     InvalidAmount,
     #[msg("Invalid price from oracle")]
     InvalidPrice,
+    #[msg("Exceeds maximum allowed per wallet for this stage")]
+    ExceedsMaxPerWallet,
 }

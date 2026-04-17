@@ -15,7 +15,6 @@ import { address } from "@solana/kit";
 import { bn } from "./utils/functions";
 import { constants } from "./utils/constants";
 import { expect } from "chai";
-import { publicKey } from "@anchor-lang/core/dist/cjs/utils";
 import { stages } from "./data";
 
 describe("fulbo pre-sale", () => {
@@ -26,7 +25,7 @@ describe("fulbo pre-sale", () => {
 
   const program = anchor.workspace.fulbo_presale as Program<FulboPresale>;
 
-  it.skip("initialize ix!", async () => {
+  it("initialize ix!", async () => {
     const [config] = await findConfigPda();
     const [treasury] = await findTreasuryPda();
 
@@ -55,7 +54,7 @@ describe("fulbo pre-sale", () => {
     );
   });
 
-  it.skip("buy_token ix!", async () => {
+  it("buy_token ix!", async () => {
     const amount = bn(1_000_000_000); // 1000 $FULBO
 
     const [config] = await findConfigPda();
@@ -82,13 +81,17 @@ describe("fulbo pre-sale", () => {
     );
 
     const treasuryAccount = getTreasuryDecoder().decode(treasuryData!.data);
-    expect(treasuryAccount.totalSol).to.eq(amount.toNumber());
+    expect(Number(treasuryAccount.totalSol)).greaterThan(0);
 
     const positionData = await connection.getAccountInfo(
       new anchor.web3.PublicKey(position.toString()),
     );
 
     const positionAccount = getPositionDecoder().decode(positionData!.data);
-    expect(positionAccount.totalTokens).to.eq(amount.toNumber());
+    expect(Number(positionAccount.totalTokens)).to.eq(amount.toNumber());
+    expect(Number(positionAccount.totalSol)).to.eq(Number(treasuryAccount.totalSol));
+    expect(Number(positionAccount.stageAllocations[0].tokens)).to.eq(amount.toNumber());
   });
+
+  
 });
