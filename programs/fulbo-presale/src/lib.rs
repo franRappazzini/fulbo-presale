@@ -8,7 +8,7 @@ use anchor_lang::prelude::*;
 pub use instructions::*;
 pub use states::Stage;
 
-declare_id!("BDynxxaaLpprmBdoRaAtsrbXpwfVjXuhXH1Ghhyv5khT");
+declare_id!("4q6B6GdbbijEHxnhXVx8mDsiHfgk5b9bCVB8PqtA1bDJ");
 
 #[program]
 pub mod fulbo_presale {
@@ -30,5 +30,9 @@ pub mod fulbo_presale {
     /// Returns `Ok(())` on successful purchase, or an error if the transaction fails.
     pub fn buy_token(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
         buy_token::process(ctx, amount)
+    }
+
+    pub fn claim_token(ctx: Context<ClaimToken>) -> Result<()> {
+        claim_token::process(ctx)
     }
 }

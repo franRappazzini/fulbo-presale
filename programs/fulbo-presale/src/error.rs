@@ -14,4 +14,8 @@ pub enum ErrorCode {
     InvalidPrice,
     #[msg("Exceeds maximum allowed per wallet for this stage")]
     ExceedsMaxPerWallet,
+    #[msg("TGE has not started yet")]
+    TgeNotStarted,
+    #[msg("No tokens available to claim at this time")]
+    NothingToClaim,
 }

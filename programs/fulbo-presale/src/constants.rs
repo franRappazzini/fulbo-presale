@@ -10,3 +10,11 @@ pub const TREASURY_SEED: &[u8] = b"treasury";
 
 #[constant]
 pub const POSITION_SEED: &[u8] = b"position";
+
+/// One "month" for vesting purposes = 30 days in seconds.
+#[constant]
+pub const SECONDS_PER_MONTH: u64 = 30 * 24 * 60 * 60; // 2_592_000
+
+/// Each month unlocks an additional 5% of total tokens (500 bps).
+#[constant]
+pub const MONTHLY_UNLOCK_BPS: u16 = 500;
