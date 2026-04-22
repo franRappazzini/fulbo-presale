@@ -20,6 +20,14 @@ impl Position {
     pub const SIZE: usize = DISCRIMINATOR + Position::INIT_SPACE;
 
     pub fn purchase(&mut self, result: &PurchaseResult) -> Result<()> {
+        msg!(
+            "recording purchase: stage {}, tokens {}, lamports {}, overflow {:?}",
+            result.stage,
+            result.tokens,
+            result.lamports,
+            result.overflow
+        );
+
         let total_tokens = result.tokens + result.overflow.map(|(_, t, _, _)| t).unwrap_or(0);
         let total_lamports = result.lamports + result.overflow.map(|(_, _, l, _)| l).unwrap_or(0);
 

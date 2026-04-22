@@ -37,11 +37,16 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn process(ctx: Context<Initialize>, stages: [Stage; 11]) -> Result<()> {
+pub fn process(
+    ctx: Context<Initialize>,
+    total_tokens_for_sale: u64,
+    stages: [Stage; 11],
+) -> Result<()> {
     let config = &mut ctx.accounts.config;
     config.authority = ctx.accounts.authority.key();
     config.mint = ctx.accounts.mint.key();
     config.chainlink_feed = ctx.accounts.chainlink_feed.key();
+    config.total_tokens_for_sale = total_tokens_for_sale;
     config.stages = stages;
     config.bump = ctx.bumps.config;
 

@@ -13,6 +13,7 @@
     "@codama/nodes-from-anchor": "^1.4.1",
     "@codama/renderers-js": "^2.1.0",
     "@solana/kit": "^6.8.0",
+    "@solana/spl-token": "^0.4.14",
     "codama": "^1.6.0"
   },
   "devDependencies": {

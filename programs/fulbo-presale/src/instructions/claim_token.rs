@@ -5,9 +5,9 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH, TREASURY_SEED},
+    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH},
     error::ErrorCode,
-    states::{Config, Position, Treasury},
+    states::{Config, Position},
 };
 
 #[derive(Accounts)]
@@ -18,16 +18,10 @@ pub struct ClaimToken<'info> {
     #[account(
         mut,
         seeds = [CONFIG_SEED],
-        bump = config.bump
+        bump = config.bump,
+        constraint = config.sale_finalized @ ErrorCode::TgeNotStarted,
     )]
     pub config: Account<'info, Config>,
-
-    #[account(
-        mut,
-        seeds = [TREASURY_SEED],
-        bump = treasury.bump
-    )]
-    pub treasury: Account<'info, Treasury>,
 
     #[account(
         mut,
@@ -43,7 +37,7 @@ pub struct ClaimToken<'info> {
     pub mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
-        init_if_needed,
+        init_if_needed, // FIXME: bench with init vs init in separate instruction
         payer = claimer,
         associated_token::mint = mint,
         associated_token::authority = claimer,
@@ -60,13 +54,10 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
     let config = &mut ctx.accounts.config;
     let position = &mut ctx.accounts.position;
 
-    // tge starts only after the presale is finalized (last token sold) or manually by admin
-    require!(config.sale_finalized, ErrorCode::TgeNotStarted);
-
     let now = Clock::get()?.unix_timestamp;
 
     let seconds_since_tge = (now.saturating_sub(config.tge_timestamp)).max(0) as u64;
-    let months_elapsed = seconds_since_tge / SECONDS_PER_MONTH;
+    let months_elapsed = seconds_since_tge / SECONDS_PER_MONTH as u64;
 
     let mut total_claimable: u64 = 0;
 
@@ -89,6 +80,17 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
             .ok_or(ErrorCode::MathOverflow)?
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
+
+        msg!(
+            "Stage {}: tokens: {}, locked_bps: {}, unlocked_at_tge_bps: {}, vested_bps: {}, total_unlocked_bps: {}, total_unlocked: {}",
+            config.current_stage,
+            alloc.tokens,
+            locked_bps,
+            unlocked_at_tge_bps,
+            vested_bps,
+            total_unlocked_bps,
+            total_unlocked
+        );
 
         if total_unlocked > 0 {
             alloc.claimed = true;
@@ -126,6 +128,10 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
 
     let cpi_ctx =
         CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
+    msg!(
+        "mint authority: {}",
+        ctx.accounts.mint.mint_authority.unwrap()
+    );
 
     token_interface::mint_to_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)
 }

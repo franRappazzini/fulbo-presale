@@ -1,4 +1,5 @@
 import { bn } from "./utils/functions";
+import { constants } from "./utils/constants";
 
 /*
     | Stage | Target USD | Price | Tokens Sold | Locked % | Unlock |
@@ -112,3 +113,8 @@ export const stages = [
     maxWalletPctBps: 500,
   },
 ];
+
+export const stagesWithoutLimit = stages.map((stage) => ({
+  ...stage,
+  maxWalletPctBps: 10_000, // 100%
+}));

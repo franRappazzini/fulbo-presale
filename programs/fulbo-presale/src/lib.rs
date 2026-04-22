@@ -14,8 +14,12 @@ declare_id!("4q6B6GdbbijEHxnhXVx8mDsiHfgk5b9bCVB8PqtA1bDJ");
 pub mod fulbo_presale {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, stages: [Stage; 11]) -> Result<()> {
-        initialize::process(ctx, stages)
+    pub fn initialize(
+        ctx: Context<Initialize>,
+        total_tokens_for_sale: u64,
+        stages: [Stage; 11],
+    ) -> Result<()> {
+        initialize::process(ctx, total_tokens_for_sale, stages)
     }
 
     /// Purchases tokens during the presale.

@@ -18,4 +18,6 @@ pub enum ErrorCode {
     TgeNotStarted,
     #[msg("No tokens available to claim at this time")]
     NothingToClaim,
+    #[msg("Sale has already been finalized")]
+    SaleAlreadyFinalized,
 }

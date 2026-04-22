@@ -16,6 +16,7 @@ pub struct BuyToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
+        constraint = !config.sale_finalized @ ErrorCode::SaleAlreadyFinalized,
     )]
     pub config: Account<'info, Config>,
 
@@ -52,10 +53,10 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
         position.bump = ctx.bumps.position;
     }
 
-    // TODO: replace with actual price fetching from chainlink oracle
-    let (sol_price, oracle_decimals) = get_sol_price(&ctx.accounts.chainlink_feed)?;
-    // let sol_price = 9000000000;
-    // let oracle_decimals = 8;
+    // FIXME: replace with actual price fetching from chainlink oracle
+    // let (sol_price, oracle_decimals) = get_sol_price(&ctx.accounts.chainlink_feed)?;
+    let sol_price = 9000000000;
+    let oracle_decimals = 8;
 
     msg!("Price: {}", sol_price);
     msg!("Decimals: {}", oracle_decimals);
@@ -66,6 +67,7 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
     require!(usd_unit_amount > 0, ErrorCode::InvalidAmount);
     require!(sol_price > 0, ErrorCode::InvalidPrice);
 
+    // checked inside
     let lamports = calculate_lamports(amount, usd_unit_amount, sol_price, oracle_decimals)?;
 
     // transfer lamports from buyer to treasury
