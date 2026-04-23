@@ -80,6 +80,6 @@ impl Position {
 pub struct StageAllocation {
     pub tokens: u64,
     pub sol_paid: u64,
+    pub claimed: u64,
     pub locked_pct_bps: u16,
-    pub claimed: bool,
 }

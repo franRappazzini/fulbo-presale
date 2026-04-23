@@ -62,7 +62,7 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
     let mut total_claimable: u64 = 0;
 
     for alloc in position.stage_allocations.iter_mut() {
-        if alloc.tokens == 0 || alloc.claimed {
+        if alloc.tokens == 0 || alloc.claimed == alloc.tokens {
             continue;
         }
 
@@ -92,10 +92,15 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
             total_unlocked
         );
 
-        if total_unlocked > 0 {
-            alloc.claimed = true;
+        let claimable = total_unlocked.saturating_sub(alloc.claimed);
+
+        if claimable > 0 {
+            alloc.claimed = alloc
+                .claimed
+                .checked_add(claimable)
+                .ok_or(ErrorCode::MathOverflow)?;
             total_claimable = total_claimable
-                .checked_add(total_unlocked)
+                .checked_add(claimable)
                 .ok_or(ErrorCode::MathOverflow)?;
         }
     }

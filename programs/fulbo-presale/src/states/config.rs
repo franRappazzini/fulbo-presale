@@ -102,8 +102,14 @@ impl Config {
                 .checked_add(lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
 
+            if self.stages[current_stage].tokens_sold == self.stages[current_stage].max_tokens
+                && (self.current_stage as usize) < self.stages.len() - 1
+            {
+                self.current_stage += 1;
+            }
+
             PurchaseResult {
-                stage: self.current_stage,
+                stage: current_stage as u8,
                 tokens,
                 lamports,
                 overflow: None,
