@@ -39,4 +39,8 @@ pub mod fulbo_presale {
     pub fn claim_token(ctx: Context<ClaimToken>) -> Result<()> {
         claim_token::process(ctx)
     }
+
+    pub fn announce_tge(ctx: Context<AnnounceTge>) -> Result<()> {
+        announce_tge::process(ctx)
+    }
 }

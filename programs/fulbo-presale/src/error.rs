@@ -20,4 +20,6 @@ pub enum ErrorCode {
     NothingToClaim,
     #[msg("Sale has already been finalized")]
     SaleAlreadyFinalized,
+    #[msg("TGE has already been announced")]
+    TgeAlreadyAnnounced,
 }

@@ -12,6 +12,7 @@ pub struct Config {
     pub stages: [Stage; 11],
 
     pub tge_timestamp: i64,
+    pub tge_announced_timestamp: i64,
 
     pub total_sol_raised: u64,
     pub total_tokens_for_sale: u64,
