@@ -14,6 +14,7 @@ pub struct Config {
     pub tge_timestamp: i64,
 
     pub total_sol_raised: u64,
+    pub total_tokens_for_sale: u64,
     pub total_tokens_sold: u64,
     pub total_tokens_claimed: u64,
 
@@ -101,8 +102,14 @@ impl Config {
                 .checked_add(lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
 
+            if self.stages[current_stage].tokens_sold == self.stages[current_stage].max_tokens
+                && (self.current_stage as usize) < self.stages.len() - 1
+            {
+                self.current_stage += 1;
+            }
+
             PurchaseResult {
-                stage: self.current_stage,
+                stage: current_stage as u8,
                 tokens,
                 lamports,
                 overflow: None,
@@ -118,6 +125,13 @@ impl Config {
             let remaining_tokens = tokens
                 .checked_sub(available_stage_amount)
                 .ok_or(ErrorCode::MathOverflow)?;
+
+            msg!(
+                "tokens: {} | available in stage: {} | remaining: {}",
+                tokens,
+                available_stage_amount,
+                remaining_tokens
+            );
 
             // split SOL proportionally: current_stage_lamports / total_lamports = available_tokens / total_tokens
             let current_stage_lamports = (lamports as u128)
@@ -173,6 +187,23 @@ impl Config {
             .checked_add(lamports)
             .ok_or(ErrorCode::MathOverflow)?;
 
+        msg!(
+            "Total tokens sold: {} / {} | Total SOL raised: {}",
+            self.total_tokens_sold,
+            self.total_tokens_for_sale,
+            self.total_sol_raised
+        );
+
+        self.check_finalize_sale()?;
+
         Ok(result)
+    }
+
+    pub fn check_finalize_sale(&mut self) -> Result<()> {
+        if self.total_tokens_sold == self.total_tokens_for_sale {
+            self.sale_finalized = true;
+            self.tge_timestamp = Clock::get()?.unix_timestamp;
+        }
+        Ok(())
     }
 }

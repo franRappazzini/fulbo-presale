@@ -5,9 +5,9 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH, TREASURY_SEED},
+    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH},
     error::ErrorCode,
-    states::{Config, Position, Treasury},
+    states::{Config, Position},
 };
 
 #[derive(Accounts)]
@@ -18,16 +18,10 @@ pub struct ClaimToken<'info> {
     #[account(
         mut,
         seeds = [CONFIG_SEED],
-        bump = config.bump
+        bump = config.bump,
+        constraint = config.sale_finalized @ ErrorCode::TgeNotStarted,
     )]
     pub config: Account<'info, Config>,
-
-    #[account(
-        mut,
-        seeds = [TREASURY_SEED],
-        bump = treasury.bump
-    )]
-    pub treasury: Account<'info, Treasury>,
 
     #[account(
         mut,
@@ -60,18 +54,15 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
     let config = &mut ctx.accounts.config;
     let position = &mut ctx.accounts.position;
 
-    // tge starts only after the presale is finalized (last token sold) or manually by admin
-    require!(config.sale_finalized, ErrorCode::TgeNotStarted);
-
     let now = Clock::get()?.unix_timestamp;
 
     let seconds_since_tge = (now.saturating_sub(config.tge_timestamp)).max(0) as u64;
-    let months_elapsed = seconds_since_tge / SECONDS_PER_MONTH;
+    let months_elapsed = seconds_since_tge / SECONDS_PER_MONTH as u64;
 
     let mut total_claimable: u64 = 0;
 
     for alloc in position.stage_allocations.iter_mut() {
-        if alloc.tokens == 0 || alloc.claimed {
+        if alloc.tokens == 0 || alloc.claimed == alloc.tokens {
             continue;
         }
 
@@ -90,10 +81,26 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
 
-        if total_unlocked > 0 {
-            alloc.claimed = true;
+        msg!(
+            "Stage {}: tokens: {}, locked_bps: {}, unlocked_at_tge_bps: {}, vested_bps: {}, total_unlocked_bps: {}, total_unlocked: {}",
+            config.current_stage,
+            alloc.tokens,
+            locked_bps,
+            unlocked_at_tge_bps,
+            vested_bps,
+            total_unlocked_bps,
+            total_unlocked
+        );
+
+        let claimable = total_unlocked.saturating_sub(alloc.claimed);
+
+        if claimable > 0 {
+            alloc.claimed = alloc
+                .claimed
+                .checked_add(claimable)
+                .ok_or(ErrorCode::MathOverflow)?;
             total_claimable = total_claimable
-                .checked_add(total_unlocked)
+                .checked_add(claimable)
                 .ok_or(ErrorCode::MathOverflow)?;
         }
     }
@@ -126,6 +133,10 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
 
     let cpi_ctx =
         CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
+    msg!(
+        "mint authority: {}",
+        ctx.accounts.mint.mint_authority.unwrap()
+    );
 
     token_interface::mint_to_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)
 }
