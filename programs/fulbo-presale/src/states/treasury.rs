@@ -6,7 +6,6 @@ use crate::constants::DISCRIMINATOR;
 #[derive(InitSpace)]
 pub struct Treasury {
     pub total_sol: u64,
-    pub claimed: bool,
     pub bump: u8,
 }
 

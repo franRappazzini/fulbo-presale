@@ -16,7 +16,7 @@ pub struct BuyToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
-        constraint = !config.sale_finalized || config.tge_announced_timestamp >= Clock::get()?.unix_timestamp @ ErrorCode::SaleAlreadyFinalized,
+        constraint = !config.sale_finalized || config.tge_timestamp >= Clock::get()?.unix_timestamp @ ErrorCode::SaleAlreadyFinalized,
         constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
@@ -48,30 +48,97 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
     require!(amount > 0, ErrorCode::InvalidAmount);
 
     // initialize position account if not already initialized
-    let position = &mut ctx.accounts.position;
-    if !position.is_initialized {
-        position.is_initialized = true;
-        position.bump = ctx.bumps.position;
+    if !ctx.accounts.position.is_initialized {
+        ctx.accounts.position.is_initialized = true;
+        ctx.accounts.position.bump = ctx.bumps.position;
     }
 
-    // FIXME: replace with actual price fetching from chainlink oracle
-    // let (sol_price, oracle_decimals) = get_sol_price(&ctx.accounts.chainlink_feed)?;
-    let sol_price = 9000000000;
-    let oracle_decimals = 8;
+    let (sol_price, oracle_decimals) = get_sol_price(&ctx.accounts.chainlink_feed)?;
 
     msg!("Price: {}", sol_price);
     msg!("Decimals: {}", oracle_decimals);
 
-    let usd_unit_amount =
-        ctx.accounts.config.stages[ctx.accounts.config.current_stage as usize].price_usd;
-
-    require!(usd_unit_amount > 0, ErrorCode::InvalidAmount);
     require!(sol_price > 0, ErrorCode::InvalidPrice);
 
-    // checked inside
-    let lamports = calculate_lamports(amount, usd_unit_amount, sol_price, oracle_decimals)?;
+    let current_stage_idx = ctx.accounts.config.current_stage as usize;
+    let current_price_usd = ctx.accounts.config.stages[current_stage_idx].price_usd;
+    let current_max_tokens = ctx.accounts.config.stages[current_stage_idx].max_tokens;
+    let current_tokens_sold = ctx.accounts.config.stages[current_stage_idx].tokens_sold;
+    let current_max_wallet_bps = ctx.accounts.config.stages[current_stage_idx].max_wallet_pct_bps;
 
-    // transfer lamports from buyer to treasury
+    require!(current_price_usd > 0, ErrorCode::InvalidAmount);
+
+    // calculate how many tokens are still available in the current stage, and how many overflow
+    let available_in_current = current_max_tokens
+        .checked_sub(current_tokens_sold)
+        .ok_or(ErrorCode::MathOverflow)?;
+    let tokens_in_current = amount.min(available_in_current);
+    let tokens_in_overflow = amount.saturating_sub(available_in_current);
+
+    let current_max_wallet = (current_max_tokens as u128)
+        .checked_mul(current_max_wallet_bps as u128)
+        .ok_or(ErrorCode::MathOverflow)?
+        .checked_div(10_000)
+        .ok_or(ErrorCode::MathOverflow)?;
+
+    require!(
+        (ctx.accounts.position.stage_allocations[current_stage_idx].tokens as u128)
+            .checked_add(tokens_in_current as u128)
+            .ok_or(ErrorCode::MathOverflow)?
+            <= current_max_wallet,
+        ErrorCode::ExceedsMaxPerWallet
+    );
+
+    // calculate lamports with correct stage pricing
+    let (lamports, overflow_lamports) = if tokens_in_overflow > 0 {
+        require!(current_stage_idx < 10, ErrorCode::InvalidAmount);
+
+        let next_price_usd = ctx.accounts.config.stages[current_stage_idx + 1].price_usd;
+        let next_max_tokens = ctx.accounts.config.stages[current_stage_idx + 1].max_tokens;
+        let next_max_wallet_bps =
+            ctx.accounts.config.stages[current_stage_idx + 1].max_wallet_pct_bps;
+
+        require!(next_price_usd > 0, ErrorCode::InvalidAmount);
+
+        let next_max_wallet = (next_max_tokens as u128)
+            .checked_mul(next_max_wallet_bps as u128)
+            .ok_or(ErrorCode::MathOverflow)?
+            .checked_div(10_000)
+            .ok_or(ErrorCode::MathOverflow)?;
+
+        require!(
+            (ctx.accounts.position.stage_allocations[current_stage_idx + 1].tokens as u128)
+                .checked_add(tokens_in_overflow as u128)
+                .ok_or(ErrorCode::MathOverflow)?
+                <= next_max_wallet,
+            ErrorCode::ExceedsMaxPerWallet
+        );
+
+        let lamps_current = if tokens_in_current > 0 {
+            calculate_lamports(
+                tokens_in_current,
+                current_price_usd,
+                sol_price,
+                oracle_decimals,
+            )?
+        } else {
+            0u64
+        };
+        let lamps_overflow = calculate_lamports(
+            tokens_in_overflow,
+            next_price_usd,
+            sol_price,
+            oracle_decimals,
+        )?;
+        let total = lamps_current
+            .checked_add(lamps_overflow)
+            .ok_or(ErrorCode::MathOverflow)?;
+        (total, lamps_overflow)
+    } else {
+        let lamps = calculate_lamports(amount, current_price_usd, sol_price, oracle_decimals)?;
+        (lamps, 0u64)
+    };
+
     let cpi_accounts = system_program::Transfer {
         from: ctx.accounts.buyer.to_account_info(),
         to: ctx.accounts.treasury.to_account_info(),
@@ -81,18 +148,16 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
 
     system_program::transfer(cpi_ctx, lamports)?;
 
-    // update config account
+    // update config, treasury and position accounts
     let config = &mut ctx.accounts.config;
-    let purchase_result = config.add_purchase(amount, lamports)?;
+    let purchase_result = config.add_purchase(amount, lamports, overflow_lamports)?;
 
-    // update treasury account
     let treasury = &mut ctx.accounts.treasury;
     treasury.total_sol = treasury
         .total_sol
         .checked_add(lamports)
         .ok_or(ErrorCode::MathOverflow)?;
 
-    // update position account
     let position = &mut ctx.accounts.position;
     position.purchase(&purchase_result)
 }
@@ -121,17 +186,19 @@ fn calculate_lamports(
         .and_then(|v| v.checked_div(1_000_000)) // 10^6 decimals
         .ok_or(ErrorCode::MathOverflow)?;
 
-    let exponent_adjustment = (oracle_decimals)
-        .checked_add(9) // SOL decimals
-        .and_then(|v| v.checked_sub(6)) // FULBO decimals
-        .ok_or(ErrorCode::MathOverflow)?;
-
-    require!(exponent_adjustment <= 12, ErrorCode::InvalidAmount); // sanity check
+    // Compute net exponent: oracle_decimals + SOL_decimals(9) - FULBO_decimals(6).
+    // Use i32 to avoid u8 overflow and give a meaningful error on bad oracle config.
+    let exponent_raw = (oracle_decimals as i32) + 9 - 6;
+    require!(
+        exponent_raw >= 0 && exponent_raw <= 12,
+        ErrorCode::InvalidPrice
+    );
+    let exponent_adjustment = exponent_raw as u32;
 
     msg!("Exponent adjustment: {}", exponent_adjustment);
 
     let scale_factor: u128 = 10_i128
-        .checked_pow(exponent_adjustment as u32)
+        .checked_pow(exponent_adjustment)
         .ok_or(ErrorCode::MathOverflow)?
         .try_into()
         .map_err(|_| ErrorCode::MathOverflow)?;

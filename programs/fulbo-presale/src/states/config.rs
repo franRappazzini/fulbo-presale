@@ -12,7 +12,6 @@ pub struct Config {
     pub stages: [Stage; 11],
 
     pub tge_timestamp: i64,
-    pub tge_announced_timestamp: i64,
 
     pub total_sol_raised: u64,
     pub total_tokens_for_sale: u64,
@@ -56,37 +55,25 @@ impl Config {
 
     /// Records a token purchase, updating token and SOL accounting for the affected stage(s).
     ///
-    /// ## Validations
-    /// - `tokens` must not exceed the max-per-wallet cap of the current stage
-    ///   (`max_tokens * max_wallet_pct_bps / 10_000`).
-    ///
     /// ## Stage advancement
     /// At most two stages are touched per call:
     /// 1. **Current stage has enough supply** → all `tokens` and `lamports` are recorded there.
     /// 2. **Current stage runs out** → the remaining supply of the current stage is filled,
     ///    `current_stage` advances by one, and the leftover tokens are recorded in the new stage.
-    ///    SOL is split proportionally between the two stages
-    ///    (`stage1_lamports = lamports * available / tokens`), since the entire purchase was
-    ///    priced at the current-stage rate.
+    ///    `overflow_lamports` must contain the pre-calculated lamports for the overflow portion,
+    ///    already priced at the next stage's rate (computed in `buy_token`).
+    ///    If the overflow exactly fills the new stage as well, `current_stage` advances once more.
     ///
     /// ## Global counters
     /// `total_tokens_sold` and `total_sol_raised` are always incremented by the full amounts,
     /// regardless of how many stages were touched.
-    pub fn add_purchase(&mut self, tokens: u64, lamports: u64) -> Result<PurchaseResult> {
+    pub fn add_purchase(
+        &mut self,
+        tokens: u64,
+        lamports: u64,
+        overflow_lamports: u64,
+    ) -> Result<PurchaseResult> {
         let current_stage = self.current_stage as usize;
-
-        let max_per_stage = (self.stages[current_stage].max_tokens as u128)
-            .checked_mul(self.stages[current_stage].max_wallet_pct_bps as u128)
-            .ok_or(ErrorCode::MathOverflow)?
-            .checked_div(10_000)
-            .ok_or(ErrorCode::MathOverflow)?;
-
-        msg!("Tokens: {} | Max per stage: {}", tokens, max_per_stage);
-
-        require!(
-            tokens as u128 <= max_per_stage,
-            ErrorCode::ExceedsMaxPerWallet
-        );
 
         let available_stage_amount = self.stages[current_stage]
             .max_tokens
@@ -135,16 +122,11 @@ impl Config {
                 remaining_tokens
             );
 
-            // split SOL proportionally: current_stage_lamports / total_lamports = available_tokens / total_tokens
-            let current_stage_lamports = (lamports as u128)
-                .checked_mul(available_stage_amount as u128)
-                .ok_or(ErrorCode::MathOverflow)?
-                .checked_div(tokens as u128)
-                .ok_or(ErrorCode::MathOverflow)? as u64;
 
-            let new_stage_lamports = lamports
-                .checked_sub(current_stage_lamports)
+            let current_stage_lamports = lamports
+                .checked_sub(overflow_lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
+            let new_stage_lamports = overflow_lamports;
 
             self.stages[current_stage].tokens_sold = self.stages[current_stage].max_tokens;
             self.stages[current_stage].raised_sol = self.stages[current_stage]
@@ -165,12 +147,20 @@ impl Config {
                 .checked_add(new_stage_lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
 
+
+            if self.stages[new_current_stage].tokens_sold
+                == self.stages[new_current_stage].max_tokens
+                && (self.current_stage as usize) < self.stages.len() - 1
+            {
+                self.current_stage += 1;
+            }
+
             PurchaseResult {
                 stage: current_stage as u8,
                 tokens: available_stage_amount,
                 lamports: current_stage_lamports,
                 overflow: Some((
-                    self.current_stage,
+                    new_current_stage as u8,
                     remaining_tokens,
                     new_stage_lamports,
                     self.stages[new_current_stage].locked_pct_bps,
