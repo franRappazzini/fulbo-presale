@@ -17,15 +17,15 @@ pub struct AnnounceTge<'info> {
         bump = config.bump,
         has_one = authority,
         constraint = !config.sale_finalized @ ErrorCode::SaleAlreadyFinalized,
-        constraint = config.tge_announced_timestamp == 0 @ ErrorCode::TgeAlreadyAnnounced,
+        constraint = config.tge_timestamp == 0 @ ErrorCode::TgeAlreadyAnnounced,
         constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 }
 
 pub fn process(ctx: Context<AnnounceTge>) -> Result<()> {
-    ctx.accounts.config.tge_announced_timestamp =
-        Clock::get()?.unix_timestamp + SECONDS_PER_MONTH as i64; // the time when the first claim will be available (1 month after TGE announcement)
+    // claim open 1 month after the tge announcement
+    ctx.accounts.config.tge_timestamp = Clock::get()?.unix_timestamp + SECONDS_PER_MONTH as i64;
 
     Ok(())
 }

@@ -19,7 +19,9 @@ pub struct ClaimToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
-        constraint = config.sale_finalized || config.tge_announced_timestamp < Clock::get()?.unix_timestamp @ ErrorCode::TgeNotStarted,
+        constraint = config.sale_finalized
+            || (config.tge_timestamp != 0 && config.tge_timestamp <= Clock::get()?.unix_timestamp)
+            @ ErrorCode::TgeNotStarted,
         constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
