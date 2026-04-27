@@ -22,4 +22,6 @@ pub enum ErrorCode {
     SaleAlreadyFinalized,
     #[msg("TGE has already been announced")]
     TgeAlreadyAnnounced,
+    #[msg("Sale is currently paused")]
+    SalePaused,
 }

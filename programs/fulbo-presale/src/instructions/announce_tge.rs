@@ -18,6 +18,7 @@ pub struct AnnounceTge<'info> {
         has_one = authority,
         constraint = !config.sale_finalized @ ErrorCode::SaleAlreadyFinalized,
         constraint = config.tge_announced_timestamp == 0 @ ErrorCode::TgeAlreadyAnnounced,
+        constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 }

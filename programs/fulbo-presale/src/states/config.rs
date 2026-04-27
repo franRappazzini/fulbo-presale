@@ -21,6 +21,7 @@ pub struct Config {
 
     pub current_stage: u8,
     pub sale_finalized: bool,
+    pub paused: bool,
     pub bump: u8,
 }
 

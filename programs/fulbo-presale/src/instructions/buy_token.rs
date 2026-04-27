@@ -17,6 +17,7 @@ pub struct BuyToken<'info> {
         seeds = [CONFIG_SEED],
         bump = config.bump,
         constraint = !config.sale_finalized @ ErrorCode::SaleAlreadyFinalized,
+        constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 

@@ -43,4 +43,8 @@ pub mod fulbo_presale {
     pub fn announce_tge(ctx: Context<AnnounceTge>) -> Result<()> {
         announce_tge::process(ctx)
     }
+
+    pub fn pause(ctx: Context<Pause>) -> Result<()> {
+        pause::process(ctx)
+    }
 }
