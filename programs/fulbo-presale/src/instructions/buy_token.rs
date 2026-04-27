@@ -16,7 +16,8 @@ pub struct BuyToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
-        constraint = !config.sale_finalized @ ErrorCode::SaleAlreadyFinalized,
+        constraint = !config.sale_finalized || config.tge_announced_timestamp >= Clock::get()?.unix_timestamp @ ErrorCode::SaleAlreadyFinalized,
+        constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 

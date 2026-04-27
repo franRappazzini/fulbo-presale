@@ -19,7 +19,8 @@ pub struct ClaimToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
-        constraint = config.sale_finalized @ ErrorCode::TgeNotStarted,
+        constraint = config.sale_finalized || config.tge_announced_timestamp < Clock::get()?.unix_timestamp @ ErrorCode::TgeNotStarted,
+        constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 
@@ -37,7 +38,7 @@ pub struct ClaimToken<'info> {
     pub mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
-        init_if_needed, // FIXME: bench with init vs init in separate instruction
+        init_if_needed,
         payer = claimer,
         associated_token::mint = mint,
         associated_token::authority = claimer,
