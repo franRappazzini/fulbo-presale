@@ -14,8 +14,6 @@ pub struct Pause<'info> {
         has_one = authority,
     )]
     pub config: Account<'info, Config>,
-
-    pub system_program: Program<'info, System>,
 }
 
 pub fn process(ctx: Context<Pause>) -> Result<()> {
