@@ -98,7 +98,7 @@ describe("fulbo pre-sale", () => {
   const program = anchor.workspace.fulbo_presale as Program<FulboPresale>;
 
   let mint: anchor.web3.PublicKey = new anchor.web3.PublicKey(
-    "9Pio6kLZag1MDnU7Qk3rXAmbthE5SyNCxSUGEjaPvoHF",
+    "6mpuQU4XkaGLrrggJ8swKWj18MH1bBcoEKHVthBoTJG6",
   );
 
   before(async () => {
@@ -150,8 +150,31 @@ describe("fulbo pre-sale", () => {
     );
   });
 
+  it.skip("pause ix!", async () => {
+    const [config] = await findConfigPda();
+
+    const tx = await program.methods
+      .pause()
+      .accountsStrict({
+        authority: wallet.publicKey,
+        config,
+      })
+      .rpc();
+    console.log("pause signature:", tx);
+
+    // Print config state after pause
+    const configAccount = getConfigDecoder().decode(
+      (await connection.getAccountInfo(new anchor.web3.PublicKey(config.toString())))!.data,
+    );
+    console.log(
+      "config after pause:",
+      JSON.stringify(configAccount, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2),
+    );
+  });
+
   it("buy_token ix! (all stages)", async () => {
     for (let i = 0; i < stagesWithoutLimit.length; i++) {
+      // if (i > 1) break; // just buy first 2 stages for testing
       const maxTokens = stagesWithoutLimit[i].maxTokens;
       console.log(`\n--- Stage ${i} | maxTokens: ${maxTokens.toString()} ---`);
 
@@ -185,6 +208,28 @@ describe("fulbo pre-sale", () => {
     console.log(
       "position:",
       JSON.stringify(positionAccount, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2),
+    );
+  });
+
+  it("announce_tge ix!", async () => {
+    const [config] = await findConfigPda();
+
+    const tx = await program.methods
+      .announceTge()
+      .accountsStrict({
+        authority: wallet.publicKey,
+        config,
+      })
+      .rpc();
+    console.log("announce_tge signature:", tx);
+
+    // Print final on-chain state after announce_tge
+    const configAccount = getConfigDecoder().decode(
+      (await connection.getAccountInfo(new anchor.web3.PublicKey(config.toString())))!.data,
+    );
+    console.log(
+      "config after announce_tge:",
+      JSON.stringify(configAccount, (_, v) => (typeof v === "bigint" ? v.toString() : v), 2),
     );
   });
 

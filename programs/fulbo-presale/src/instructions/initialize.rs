@@ -1,4 +1,5 @@
-use anchor_lang::prelude::*;
+use anchor_lang::prelude::{program_option::COption, *};
+use anchor_spl::token_interface::Mint;
 
 use crate::{
     constants::{CONFIG_SEED, TREASURY_SEED},
@@ -28,8 +29,10 @@ pub struct Initialize<'info> {
     )]
     pub treasury: Account<'info, Treasury>,
 
-    /// CHECK: just saving the mint address
-    pub mint: UncheckedAccount<'info>,
+    #[account(
+        constraint = mint.mint_authority == COption::Some(config.key()),
+    )]
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// CHECK: just saving the chainlink feed address
     pub chainlink_feed: UncheckedAccount<'info>,
