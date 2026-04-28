@@ -186,8 +186,7 @@ fn calculate_lamports(
         .and_then(|v| v.checked_div(1_000_000)) // 10^6 decimals
         .ok_or(ErrorCode::MathOverflow)?;
 
-    // Compute net exponent: oracle_decimals + SOL_decimals(9) - FULBO_decimals(6).
-    // Use i32 to avoid u8 overflow and give a meaningful error on bad oracle config.
+    // oracle_decimals + SOL_decimals(9) - FULBO_decimals(6).
     let exponent_raw = (oracle_decimals as i32) + 9 - 6;
     require!(
         exponent_raw >= 0 && exponent_raw <= 12,
