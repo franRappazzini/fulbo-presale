@@ -49,6 +49,7 @@ pub fn process(
     config.authority = ctx.accounts.authority.key();
     config.mint = ctx.accounts.mint.key();
     config.chainlink_feed = ctx.accounts.chainlink_feed.key();
+    config.presale_start_timestamp = Clock::get()?.unix_timestamp;
     config.total_tokens_for_sale = total_tokens_for_sale;
     config.stages = stages;
     config.bump = ctx.bumps.config;

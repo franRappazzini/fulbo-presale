@@ -47,4 +47,26 @@ pub mod fulbo_presale {
     pub fn pause(ctx: Context<Pause>) -> Result<()> {
         pause::process(ctx)
     }
+
+    pub fn initialize_beneficiary(
+        ctx: Context<InitializeBeneficiary>,
+        total_tokens: u64,
+        tge_unlock_bps: u16,
+        is_liquidity: bool,
+        withdraw_interval: i64,
+        sol_share_bps: u16,
+    ) -> Result<()> {
+        initialize_beneficiary::process(
+            ctx,
+            total_tokens,
+            tge_unlock_bps,
+            is_liquidity,
+            withdraw_interval,
+            sol_share_bps,
+        )
+    }
+
+    pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>) -> Result<()> {
+        withdraw_treasury::process(ctx)
+    }
 }

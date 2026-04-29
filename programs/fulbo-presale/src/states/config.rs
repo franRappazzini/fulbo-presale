@@ -12,6 +12,7 @@ pub struct Config {
     pub stages: [Stage; 11],
 
     pub tge_timestamp: i64,
+    pub presale_start_timestamp: i64,
 
     pub total_sol_raised: u64,
     pub total_tokens_for_sale: u64,
@@ -122,7 +123,6 @@ impl Config {
                 remaining_tokens
             );
 
-
             let current_stage_lamports = lamports
                 .checked_sub(overflow_lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
@@ -146,7 +146,6 @@ impl Config {
                 .raised_sol
                 .checked_add(new_stage_lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
-
 
             if self.stages[new_current_stage].tokens_sold
                 == self.stages[new_current_stage].max_tokens
