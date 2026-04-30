@@ -83,11 +83,10 @@ pub fn process(
             total_tokens,
             withdrawn_tokens: 0,
             last_vesting_claim: 0,
-            tge_start: 0,
             monthly_unlocked,
             tge_unlock_bps,
             tge_claimed: false,
-            is_manual: is_liquidity,
+            is_liquidity,
             bump: ctx.accounts.beneficiary_allocation.bump,
         });
 

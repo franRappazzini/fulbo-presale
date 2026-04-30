@@ -22,6 +22,7 @@ pub struct Config {
     pub current_stage: u8,
     pub sale_finalized: bool,
     pub paused: bool,
+    pub treasury_ata_bump: u8,
     pub bump: u8,
 }
 
