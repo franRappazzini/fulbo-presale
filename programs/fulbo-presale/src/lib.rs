@@ -69,4 +69,8 @@ pub mod fulbo_presale {
     pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>) -> Result<()> {
         withdraw_treasury::process(ctx)
     }
+
+    pub fn beneficiary_claim(ctx: Context<BeneficiaryClaim>) -> Result<()> {
+        beneficiary_claim::process(ctx)
+    }
 }
