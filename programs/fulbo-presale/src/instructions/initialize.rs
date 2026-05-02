@@ -3,6 +3,7 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::{CONFIG_SEED, TREASURY_SEED},
+    error::ErrorCode,
     states::{Config, Stage, Treasury},
 };
 
@@ -54,6 +55,16 @@ pub fn process(
     total_tokens_for_sale: u64,
     stages: [Stage; 11],
 ) -> Result<()> {
+    // Validate that stage token allocations sum exactly to the total presale supply.
+    let stage_tokens_total: u64 = stages
+        .iter()
+        .try_fold(0u64, |acc, s| acc.checked_add(s.max_tokens))
+        .ok_or(ErrorCode::MathOverflow)?;
+    require!(
+        stage_tokens_total == total_tokens_for_sale,
+        ErrorCode::InvalidAmount
+    );
+
     // init accounts
     ctx.accounts.config.set_inner(Config {
         authority: ctx.accounts.authority.key(),
@@ -71,6 +82,10 @@ pub fn process(
         paused: false,
         treasury_ata_bump: ctx.bumps.treasury_ata,
         bump: ctx.bumps.config,
+        total_sol_shares_bps: 0,
+        total_beneficiary_tokens: 0,
+        unsold_finalized: false,
+        unsold_rewards_total: 0,
     });
 
     let treasury = &mut ctx.accounts.treasury;

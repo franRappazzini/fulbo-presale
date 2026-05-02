@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use crate::{
     constants::{CONFIG_SEED, SECONDS_PER_MONTH},
     error::ErrorCode,
+    events::TgeAnnounced,
     states::Config,
 };
 
@@ -25,7 +26,10 @@ pub struct AnnounceTge<'info> {
 
 pub fn process(ctx: Context<AnnounceTge>) -> Result<()> {
     // claim open 1 month after the tge announcement
-    ctx.accounts.config.tge_timestamp = Clock::get()?.unix_timestamp + SECONDS_PER_MONTH as i64;
+    let tge_timestamp = Clock::get()?.unix_timestamp + SECONDS_PER_MONTH as i64;
+    ctx.accounts.config.tge_timestamp = tge_timestamp;
+
+    emit!(TgeAnnounced { tge_timestamp });
 
     Ok(())
 }

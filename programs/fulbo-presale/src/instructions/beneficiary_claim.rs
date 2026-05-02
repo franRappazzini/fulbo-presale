@@ -7,6 +7,7 @@ use anchor_spl::{
 use crate::{
     constants::{BENEFICIARY_ALLOCATION_SEED, CONFIG_SEED, SECONDS_PER_MONTH, TREASURY_SEED},
     error::ErrorCode,
+    events::BeneficiaryTokensClaimed,
     states::{BeneficiaryAllocation, Config},
 };
 
@@ -63,19 +64,21 @@ pub struct BeneficiaryClaim<'info> {
 pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
     let now = Clock::get()?.unix_timestamp;
 
+    let config_bump = ctx.accounts.config.bump;
+    let mint_decimals = ctx.accounts.mint.decimals;
+    let tge_timestamp = ctx.accounts.config.tge_timestamp;
+
     let beneficiary_allocation = &mut ctx.accounts.beneficiary_allocation;
 
     let claimable_tokens: u64 = if beneficiary_allocation.is_liquidity {
-        // full claim, once only.
-        require!(
-            !beneficiary_allocation.tge_claimed,
-            ErrorCode::NothingToClaim
-        );
-        beneficiary_allocation.tge_claimed = true;
-        beneficiary_allocation.total_tokens
+        // Liquidity beneficiary: all tokens unlocked at TGE in one go.
+        // Re-entrancy safety: claimable = total_tokens - withdrawn_tokens.
+        let claimable = beneficiary_allocation.total_tokens
+            .checked_sub(beneficiary_allocation.withdrawn_tokens)
+            .ok_or(ErrorCode::MathOverflow)?;
+        require!(claimable > 0, ErrorCode::NothingToClaim);
+        claimable
     } else {
-        let tge_timestamp = ctx.accounts.config.tge_timestamp;
-
         let seconds_since_tge: u64 = now
             .checked_sub(tge_timestamp)
             .ok_or(ErrorCode::MathOverflow)?
@@ -83,7 +86,9 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
             .map_err(|_| ErrorCode::MathOverflow)?;
         let months_since_tge = seconds_since_tge / SECONDS_PER_MONTH as u64;
 
-        let tge_unlock_amount: u64 = (beneficiary_allocation.total_tokens as u128)
+        let total_tokens = beneficiary_allocation.total_tokens;
+
+        let tge_unlock_amount: u64 = (total_tokens as u128)
             .checked_mul(beneficiary_allocation.tge_unlock_bps as u128)
             .ok_or(ErrorCode::MathOverflow)?
             .checked_div(10_000)
@@ -91,17 +96,20 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
 
-        // vested monthly amount
-        let vested_amount: u64 = (beneficiary_allocation.monthly_unlocked as u128)
+        // M-3: cap vested_amount to total_tokens BEFORE converting to u64.
+        let monthly_unlocked = beneficiary_allocation.monthly_unlocked;
+
+        let vested_amount: u64 = (monthly_unlocked as u128)
             .checked_mul(months_since_tge as u128)
             .ok_or(ErrorCode::MathOverflow)?
+            .min(total_tokens as u128) // cap before u64 conversion
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
 
         let cumulative_unlocked = tge_unlock_amount
             .checked_add(vested_amount)
             .ok_or(ErrorCode::MathOverflow)?
-            .min(beneficiary_allocation.total_tokens); // just to prevent overclaiming in case of several months passing without claiming
+            .min(total_tokens);
 
         let claimable = cumulative_unlocked
             .checked_sub(beneficiary_allocation.withdrawn_tokens)
@@ -117,14 +125,11 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
         .withdrawn_tokens
         .checked_add(claimable_tokens)
         .ok_or(ErrorCode::MathOverflow)?;
-    beneficiary_allocation.last_vesting_claim = now;
 
-    // transfer claimable tokens
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        TREASURY_SEED,
-        &ctx.accounts.mint.key().to_bytes(),
-        &[ctx.accounts.config.treasury_ata_bump],
-    ]];
+    let beneficiary_key = ctx.accounts.beneficiary.key();
+
+    // C-1: signer is the config PDA (token authority), not the treasury ATA PDA.
+    let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config_bump]]];
 
     let cpi_accounts = token_interface::TransferChecked {
         authority: ctx.accounts.config.to_account_info(),
@@ -133,8 +138,18 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
         to: ctx.accounts.beneficiary_ata.to_account_info(),
     };
 
-    let cpi_ctx =
-        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.key(),
+        cpi_accounts,
+        signer_seeds,
+    );
 
-    token_interface::transfer_checked(cpi_ctx, claimable_tokens, ctx.accounts.mint.decimals)
+    token_interface::transfer_checked(cpi_ctx, claimable_tokens, mint_decimals)?;
+
+    emit!(BeneficiaryTokensClaimed {
+        beneficiary: beneficiary_key,
+        amount: claimable_tokens,
+    });
+
+    Ok(())
 }

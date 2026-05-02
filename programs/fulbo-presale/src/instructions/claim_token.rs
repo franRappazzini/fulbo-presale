@@ -7,6 +7,7 @@ use anchor_spl::{
 use crate::{
     constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH, TREASURY_SEED},
     error::ErrorCode,
+    events::TokensClaimed,
     states::{Config, Position},
 };
 
@@ -125,7 +126,6 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
         .tokens_claimed
         .checked_add(total_claimable)
         .ok_or(ErrorCode::MathOverflow)?;
-    position.last_claim_ts = now;
 
     // update config account
     config.total_tokens_claimed = config
@@ -136,11 +136,8 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
     msg!("claim: {} tokens", total_claimable);
 
     // transfer tokens to claimer
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        TREASURY_SEED,
-        &ctx.accounts.mint.key().to_bytes(),
-        &[config.treasury_ata_bump],
-    ]];
+    let config_bump = config.bump;
+    let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config_bump]]];
 
     let cpi_accounts = token_interface::TransferChecked {
         authority: ctx.accounts.config.to_account_info(),
@@ -152,5 +149,12 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
     let cpi_ctx =
         CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
 
-    token_interface::transfer_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)
+    token_interface::transfer_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)?;
+
+    emit!(TokensClaimed {
+        claimer: ctx.accounts.claimer.key(),
+        total_claimable,
+    });
+
+    Ok(())
 }

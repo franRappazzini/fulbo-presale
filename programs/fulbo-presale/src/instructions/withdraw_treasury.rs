@@ -3,6 +3,7 @@ use anchor_lang::{prelude::*, system_program};
 use crate::{
     constants::{BENEFICIARY_TREASURY_SEED, CONFIG_SEED, TREASURY_SEED},
     error::ErrorCode,
+    events::TreasuryWithdrawn,
     states::{Config, Treasury, TreasuryShare},
 };
 
@@ -142,5 +143,13 @@ pub fn process(ctx: Context<WithdrawTreasury>) -> Result<()> {
         signer_seeds,
     );
 
-    system_program::transfer(cpi_ctx, amount_to_withdraw)
+    system_program::transfer(cpi_ctx, amount_to_withdraw)?;
+
+    let beneficiary_key = ctx.accounts.beneficiary.key();
+    emit!(TreasuryWithdrawn {
+        beneficiary: beneficiary_key,
+        amount: amount_to_withdraw,
+    });
+
+    Ok(())
 }

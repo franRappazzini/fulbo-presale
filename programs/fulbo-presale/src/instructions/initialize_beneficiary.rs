@@ -5,6 +5,7 @@ use crate::{
         BENEFICIARY_ALLOCATION_SEED, BENEFICIARY_TREASURY_SEED, CONFIG_SEED, MONTHLY_UNLOCK_BPS,
     },
     error::ErrorCode,
+    events::BeneficiaryInitialized,
     states::{BeneficiaryAllocation, Config, TreasuryShare},
 };
 
@@ -16,6 +17,7 @@ pub struct InitializeBeneficiary<'info> {
     pub beneficiary: SystemAccount<'info>,
 
     #[account(
+        mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
         has_one = authority,
@@ -74,6 +76,24 @@ pub fn process(
         .try_into()
         .map_err(|_| ErrorCode::MathOverflow)?;
 
+    // accumulate sol_share_bps and enforce 100 % cap
+    let new_total_sol_shares = ctx
+        .accounts
+        .config
+        .total_sol_shares_bps
+        .checked_add(sol_share_bps)
+        .ok_or(ErrorCode::MathOverflow)?;
+    require!(new_total_sol_shares <= 10_000, ErrorCode::InvalidAmount);
+    ctx.accounts.config.total_sol_shares_bps = new_total_sol_shares;
+
+    // accumulate total beneficiary tokens for pro-rata unsold reward distribution
+    ctx.accounts.config.total_beneficiary_tokens = ctx
+        .accounts
+        .config
+        .total_beneficiary_tokens
+        .checked_add(total_tokens)
+        .ok_or(ErrorCode::MathOverflow)?;
+
     msg!("monthly_unlocked: {}", monthly_unlocked);
 
     // set beneficiary allocation account
@@ -82,10 +102,8 @@ pub fn process(
         .set_inner(BeneficiaryAllocation {
             total_tokens,
             withdrawn_tokens: 0,
-            last_vesting_claim: 0,
             monthly_unlocked,
             tge_unlock_bps,
-            tge_claimed: false,
             is_liquidity,
             bump: ctx.accounts.beneficiary_allocation.bump,
         });
@@ -99,6 +117,13 @@ pub fn process(
         sol_share_bps,
         is_liquidity,
         bump: ctx.accounts.treasury_share.bump,
+    });
+
+    emit!(BeneficiaryInitialized {
+        beneficiary: ctx.accounts.beneficiary.key(),
+        total_tokens,
+        tge_unlock_bps,
+        sol_share_bps,
     });
 
     Ok(())

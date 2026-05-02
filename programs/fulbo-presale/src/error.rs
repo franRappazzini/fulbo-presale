@@ -24,4 +24,8 @@ pub enum ErrorCode {
     TgeAlreadyAnnounced,
     #[msg("Sale is currently paused")]
     SalePaused,
+    #[msg("Oracle price feed data is stale")]
+    StalePriceFeed,
+    #[msg("Insufficient token supply in the current or next stage")]
+    InsufficientStageSupply,
 }

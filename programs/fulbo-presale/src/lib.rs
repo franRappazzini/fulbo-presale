@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod error;
+pub mod events;
 pub mod instructions;
 pub mod states;
 
@@ -46,6 +47,10 @@ pub mod fulbo_presale {
 
     pub fn pause(ctx: Context<Pause>) -> Result<()> {
         pause::process(ctx)
+    }
+
+    pub fn finalize_unsold(ctx: Context<FinalizeUnsold>) -> Result<()> {
+        finalize_unsold::process(ctx)
     }
 
     pub fn initialize_beneficiary(

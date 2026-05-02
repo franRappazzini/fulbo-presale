@@ -2,8 +2,9 @@ use anchor_lang::{prelude::*, system_program};
 use chainlink_solana::v2::read_feed_v2;
 
 use crate::{
-    constants::{CONFIG_SEED, POSITION_SEED, TREASURY_SEED},
+    constants::{CONFIG_SEED, MAX_ORACLE_STALENESS, POSITION_SEED, TREASURY_SEED},
     error::ErrorCode,
+    events::{SaleFinalized, TokenPurchased},
     states::{Config, Position, Treasury},
 };
 
@@ -16,7 +17,9 @@ pub struct BuyToken<'info> {
         mut,
         seeds = [CONFIG_SEED],
         bump = config.bump,
-        constraint = !config.sale_finalized || config.tge_timestamp >= Clock::get()?.unix_timestamp @ ErrorCode::SaleAlreadyFinalized,
+        constraint = !config.sale_finalized
+            && (config.tge_timestamp == 0 || config.tge_timestamp > Clock::get()?.unix_timestamp)
+            @ ErrorCode::SaleAlreadyFinalized,
         constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
@@ -91,14 +94,24 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
 
     // calculate lamports with correct stage pricing
     let (lamports, overflow_lamports) = if tokens_in_overflow > 0 {
-        require!(current_stage_idx < 10, ErrorCode::InvalidAmount);
+        require!(current_stage_idx < 10, ErrorCode::InsufficientStageSupply);
 
         let next_price_usd = ctx.accounts.config.stages[current_stage_idx + 1].price_usd;
         let next_max_tokens = ctx.accounts.config.stages[current_stage_idx + 1].max_tokens;
+        let next_tokens_sold = ctx.accounts.config.stages[current_stage_idx + 1].tokens_sold;
         let next_max_wallet_bps =
             ctx.accounts.config.stages[current_stage_idx + 1].max_wallet_pct_bps;
 
         require!(next_price_usd > 0, ErrorCode::InvalidAmount);
+
+        // verify overflow doesn't exceed remaining supply of the next stage
+        let available_in_next = next_max_tokens
+            .checked_sub(next_tokens_sold)
+            .ok_or(ErrorCode::MathOverflow)?;
+        require!(
+            tokens_in_overflow <= available_in_next,
+            ErrorCode::InsufficientStageSupply
+        );
 
         let next_max_wallet = (next_max_tokens as u128)
             .checked_mul(next_max_wallet_bps as u128)
@@ -148,9 +161,13 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
 
     system_program::transfer(cpi_ctx, lamports)?;
 
+    // capture pre purchase finalization state to detect if this purchase triggers TGE
+    let finalized_before = ctx.accounts.config.sale_finalized;
+
     // update config, treasury and position accounts
     let config = &mut ctx.accounts.config;
     let purchase_result = config.add_purchase(amount, lamports, overflow_lamports)?;
+    let sale_just_finalized = !finalized_before && config.sale_finalized;
 
     let treasury = &mut ctx.accounts.treasury;
     treasury.total_sol = treasury
@@ -159,7 +176,27 @@ pub fn process(ctx: Context<BuyToken>, amount: u64) -> Result<()> {
         .ok_or(ErrorCode::MathOverflow)?;
 
     let position = &mut ctx.accounts.position;
-    position.purchase(&purchase_result)
+    position.purchase(&purchase_result)?;
+
+    let purchase_tokens =
+        purchase_result.tokens + purchase_result.overflow.map(|(_, t, _, _)| t).unwrap_or(0);
+
+    emit!(TokenPurchased {
+        buyer: ctx.accounts.buyer.key(),
+        stage: purchase_result.stage,
+        tokens: purchase_tokens,
+        lamports,
+    });
+
+    if sale_just_finalized {
+        emit!(SaleFinalized {
+            tge_timestamp: config.tge_timestamp,
+            total_tokens_sold: config.total_tokens_sold,
+            total_sol_raised: config.total_sol_raised,
+        });
+    }
+
+    Ok(())
 }
 
 fn get_sol_price(feed: &UncheckedAccount) -> Result<(i128, u8)> {
@@ -171,6 +208,13 @@ fn get_sol_price(feed: &UncheckedAccount) -> Result<(i128, u8)> {
     let round = result
         .latest_round_data()
         .ok_or(ErrorCode::ChainlinkRoundDataMissing)?;
+
+    // reject price data older than MAX_ORACLE_STALENESS seconds
+    let now = Clock::get()?.unix_timestamp;
+    require!(
+        now.saturating_sub(round.timestamp as i64) <= MAX_ORACLE_STALENESS,
+        ErrorCode::StalePriceFeed
+    );
 
     Ok((round.answer, result.decimals()))
 }

@@ -19,6 +19,11 @@ pub struct Config {
     pub total_tokens_sold: u64,
     pub total_tokens_claimed: u64,
 
+    pub total_beneficiary_tokens: u64,
+    pub unsold_finalized: bool,
+    pub unsold_rewards_total: u64,
+
+    pub total_sol_shares_bps: u16,
     pub current_stage: u8,
     pub sale_finalized: bool,
     pub paused: bool,
@@ -110,7 +115,7 @@ impl Config {
             // check max 11 stages (0-10 index)
             require!(
                 self.current_stage < self.stages.len() as u8 - 1,
-                ErrorCode::InvalidAmount
+                ErrorCode::InsufficientStageSupply
             );
 
             let remaining_tokens = tokens
@@ -192,7 +197,7 @@ impl Config {
     }
 
     pub fn check_finalize_sale(&mut self) -> Result<()> {
-        if self.total_tokens_sold == self.total_tokens_for_sale {
+        if self.total_tokens_sold >= self.total_tokens_for_sale {
             self.sale_finalized = true;
             self.tge_timestamp = Clock::get()?.unix_timestamp;
         }

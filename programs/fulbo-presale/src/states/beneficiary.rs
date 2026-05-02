@@ -7,12 +7,11 @@ use crate::constants::DISCRIMINATOR;
 pub struct BeneficiaryAllocation {
     pub total_tokens: u64,
     pub withdrawn_tokens: u64,
-    pub last_vesting_claim: i64, // timestamp // NO useful, just informative
-
-    pub monthly_unlocked: u64, // 5% fixed expresed in amount, not percentage (if the first month 5% = 100 tokens, every month will be 100 tokens)
-    pub tge_unlock_bps: u16,   // % claimable at tge
-
-    pub tge_claimed: bool, // based unlocked tokens
+    /// Fixed monthly unlock amount (5 % of `total_tokens`), pre-computed at initialization to avoid repeated division
+    pub monthly_unlocked: u64,
+    /// Percentage of `total_tokens` unlocked immediately at TGE (in bps)
+    pub tge_unlock_bps: u16,
+    /// Liquidity beneficiary receives their full allocation in one shot at TGE
     pub is_liquidity: bool,
     pub bump: u8,
 }

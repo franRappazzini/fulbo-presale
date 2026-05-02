@@ -9,7 +9,6 @@ pub struct Position {
     pub total_sol: u64,
 
     pub tokens_claimed: u64,
-    pub last_claim_ts: i64,
     pub stage_allocations: [StageAllocation; 11],
 
     pub is_initialized: bool,
