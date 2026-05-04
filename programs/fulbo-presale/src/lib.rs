@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod error;
+pub mod events;
 pub mod instructions;
 pub mod states;
 
@@ -46,5 +47,42 @@ pub mod fulbo_presale {
 
     pub fn pause(ctx: Context<Pause>) -> Result<()> {
         pause::process(ctx)
+    }
+
+    pub fn finalize_unsold(ctx: Context<FinalizeUnsold>) -> Result<()> {
+        finalize_unsold::process(ctx)
+    }
+
+    pub fn initialize_beneficiary(
+        ctx: Context<InitializeBeneficiary>,
+        total_tokens: u64,
+        tge_unlock_bps: u16,
+        instant_unlock: bool,
+        withdraw_interval: i64,
+        sol_share_bps: u16,
+    ) -> Result<()> {
+        initialize_beneficiary::process(
+            ctx,
+            total_tokens,
+            tge_unlock_bps,
+            instant_unlock,
+            withdraw_interval,
+            sol_share_bps,
+        )
+    }
+
+    pub fn initialize_rewards_beneficiary(
+        ctx: Context<InitializeRewardsBeneficiary>,
+        total_tokens: u64,
+    ) -> Result<()> {
+        initialize_rewards_beneficiary::process(ctx, total_tokens)
+    }
+
+    pub fn withdraw_treasury(ctx: Context<WithdrawTreasury>) -> Result<()> {
+        withdraw_treasury::process(ctx)
+    }
+
+    pub fn beneficiary_claim(ctx: Context<BeneficiaryClaim>) -> Result<()> {
+        beneficiary_claim::process(ctx)
     }
 }

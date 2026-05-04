@@ -5,8 +5,9 @@ use anchor_spl::{
 };
 
 use crate::{
-    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH},
+    constants::{CONFIG_SEED, MONTHLY_UNLOCK_BPS, POSITION_SEED, SECONDS_PER_MONTH, TREASURY_SEED},
     error::ErrorCode,
+    events::TokensClaimed,
     states::{Config, Position},
 };
 
@@ -38,6 +39,16 @@ pub struct ClaimToken<'info> {
         address = config.mint
     )]
     pub mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        seeds = [TREASURY_SEED, mint.key().as_ref()],
+        bump = config.treasury_ata_bump,
+        token::mint = mint,
+        token::authority = config,
+        token::token_program = token_program
+    )]
+    pub treasury_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         init_if_needed,
@@ -115,7 +126,6 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
         .tokens_claimed
         .checked_add(total_claimable)
         .ok_or(ErrorCode::MathOverflow)?;
-    position.last_claim_ts = now;
 
     // update config account
     config.total_tokens_claimed = config
@@ -125,21 +135,26 @@ pub fn process(ctx: Context<ClaimToken>) -> Result<()> {
 
     msg!("claim: {} tokens", total_claimable);
 
-    // mint tokens to claimer
-    let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config.bump]]];
+    // transfer tokens to claimer
+    let config_bump = config.bump;
+    let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config_bump]]];
 
-    let cpi_accounts = token_interface::MintToChecked {
+    let cpi_accounts = token_interface::TransferChecked {
         authority: ctx.accounts.config.to_account_info(),
         mint: ctx.accounts.mint.to_account_info(),
+        from: ctx.accounts.treasury_ata.to_account_info(),
         to: ctx.accounts.claimer_ata.to_account_info(),
     };
 
     let cpi_ctx =
         CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
-    msg!(
-        "mint authority: {}",
-        ctx.accounts.mint.mint_authority.unwrap()
-    );
 
-    token_interface::mint_to_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)
+    token_interface::transfer_checked(cpi_ctx, total_claimable, ctx.accounts.mint.decimals)?;
+
+    emit!(TokensClaimed {
+        claimer: ctx.accounts.claimer.key(),
+        total_claimable,
+    });
+
+    Ok(())
 }

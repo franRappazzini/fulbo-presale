@@ -12,15 +12,20 @@ pub struct Config {
     pub stages: [Stage; 11],
 
     pub tge_timestamp: i64,
+    pub presale_start_timestamp: i64,
 
     pub total_sol_raised: u64,
     pub total_tokens_for_sale: u64,
     pub total_tokens_sold: u64,
     pub total_tokens_claimed: u64,
 
+    pub unsold_finalized: bool,
+
+    pub total_sol_shares_bps: u16,
     pub current_stage: u8,
     pub sale_finalized: bool,
     pub paused: bool,
+    pub treasury_ata_bump: u8,
     pub bump: u8,
 }
 
@@ -108,7 +113,7 @@ impl Config {
             // check max 11 stages (0-10 index)
             require!(
                 self.current_stage < self.stages.len() as u8 - 1,
-                ErrorCode::InvalidAmount
+                ErrorCode::InsufficientStageSupply
             );
 
             let remaining_tokens = tokens
@@ -121,7 +126,6 @@ impl Config {
                 available_stage_amount,
                 remaining_tokens
             );
-
 
             let current_stage_lamports = lamports
                 .checked_sub(overflow_lamports)
@@ -146,7 +150,6 @@ impl Config {
                 .raised_sol
                 .checked_add(new_stage_lamports)
                 .ok_or(ErrorCode::MathOverflow)?;
-
 
             if self.stages[new_current_stage].tokens_sold
                 == self.stages[new_current_stage].max_tokens
@@ -192,7 +195,7 @@ impl Config {
     }
 
     pub fn check_finalize_sale(&mut self) -> Result<()> {
-        if self.total_tokens_sold == self.total_tokens_for_sale {
+        if self.total_tokens_sold >= self.total_tokens_for_sale {
             self.sale_finalized = true;
             self.tge_timestamp = Clock::get()?.unix_timestamp;
         }
