@@ -54,18 +54,18 @@ pub fn process(
     sol_share_bps: u16,
 ) -> Result<()> {
     require!(total_tokens > 0, ErrorCode::InvalidAmount);
-    require!(
-        tge_unlock_bps > 0 && tge_unlock_bps <= 5_000,
-        ErrorCode::InvalidAmount
-    );
+    // tge_unlock_bps is unused when instant_unlock = true, so only validate it otherwise
+    if !instant_unlock {
+        require!(
+            tge_unlock_bps > 0 && tge_unlock_bps <= 5_000,
+            ErrorCode::InvalidAmount
+        );
+        require!(withdraw_interval > 0, ErrorCode::InvalidAmount);
+    }
     require!(
         sol_share_bps > 0 && sol_share_bps <= 5_000,
         ErrorCode::InvalidAmount
     );
-    // withdraw_interval is only meaningful for non-liquidity beneficiaries
-    if !instant_unlock {
-        require!(withdraw_interval > 0, ErrorCode::InvalidAmount);
-    }
 
     // calculate first month unlock based based on monthly unlock bps
     let monthly_unlocked: u64 = (MONTHLY_UNLOCK_BPS as u128)

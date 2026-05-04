@@ -29,6 +29,7 @@ pub struct WithdrawTreasury<'info> {
     #[account(
         seeds = [CONFIG_SEED],
         bump = config.bump,
+        constraint = !config.paused @ ErrorCode::SalePaused,
     )]
     pub config: Account<'info, Config>,
 
