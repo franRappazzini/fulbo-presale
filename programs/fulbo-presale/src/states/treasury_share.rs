@@ -10,7 +10,7 @@ pub struct TreasuryShare {
     pub presale_start: i64,
     pub withdraw_interval: i64,
     pub sol_share_bps: u16, // based on the total treasury
-    pub is_liquidity: bool,
+    pub instant_unlock: bool,
     pub bump: u8,
 }
 

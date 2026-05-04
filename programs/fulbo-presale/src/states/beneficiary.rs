@@ -11,8 +11,9 @@ pub struct BeneficiaryAllocation {
     pub monthly_unlocked: u64,
     /// Percentage of `total_tokens` unlocked immediately at TGE (in bps)
     pub tge_unlock_bps: u16,
-    /// Liquidity beneficiary receives their full allocation in one shot at TGE
-    pub is_liquidity: bool,
+    /// When true, the full allocation is claimable in one shot at TGE (no monthly vesting).
+    /// Used by both the liquidity beneficiary and the rewards beneficiary.
+    pub instant_unlock: bool,
     pub bump: u8,
 }
 

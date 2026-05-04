@@ -70,10 +70,10 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
 
     let beneficiary_allocation = &mut ctx.accounts.beneficiary_allocation;
 
-    let claimable_tokens: u64 = if beneficiary_allocation.is_liquidity {
-        // Liquidity beneficiary: all tokens unlocked at TGE in one go.
-        // Re-entrancy safety: claimable = total_tokens - withdrawn_tokens.
-        let claimable = beneficiary_allocation.total_tokens
+    let claimable_tokens: u64 = if beneficiary_allocation.instant_unlock {
+        // all tokens unlocked at tge in one claim
+        let claimable = beneficiary_allocation
+            .total_tokens
             .checked_sub(beneficiary_allocation.withdrawn_tokens)
             .ok_or(ErrorCode::MathOverflow)?;
         require!(claimable > 0, ErrorCode::NothingToClaim);
@@ -96,13 +96,12 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
 
-        // M-3: cap vested_amount to total_tokens BEFORE converting to u64.
         let monthly_unlocked = beneficiary_allocation.monthly_unlocked;
 
         let vested_amount: u64 = (monthly_unlocked as u128)
             .checked_mul(months_since_tge as u128)
             .ok_or(ErrorCode::MathOverflow)?
-            .min(total_tokens as u128) // cap before u64 conversion
+            .min(total_tokens as u128)
             .try_into()
             .map_err(|_| ErrorCode::MathOverflow)?;
 
@@ -128,7 +127,6 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
 
     let beneficiary_key = ctx.accounts.beneficiary.key();
 
-    // C-1: signer is the config PDA (token authority), not the treasury ATA PDA.
     let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config_bump]]];
 
     let cpi_accounts = token_interface::TransferChecked {
@@ -138,11 +136,8 @@ pub fn process(ctx: Context<BeneficiaryClaim>) -> Result<()> {
         to: ctx.accounts.beneficiary_ata.to_account_info(),
     };
 
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.key(),
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
 
     token_interface::transfer_checked(cpi_ctx, claimable_tokens, mint_decimals)?;
 

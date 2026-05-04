@@ -34,6 +34,7 @@ pub struct FinalizeUnsold<'info> {
         mut,
         seeds = [BENEFICIARY_ALLOCATION_SEED, rewards_beneficiary.key().as_ref()],
         bump = beneficiary_allocation.bump,
+        constraint = beneficiary_allocation.instant_unlock @ ErrorCode::InvalidAmount,
     )]
     pub beneficiary_allocation: Account<'info, BeneficiaryAllocation>,
 
@@ -67,7 +68,6 @@ pub fn process(ctx: Context<FinalizeUnsold>) -> Result<()> {
     // if nothing is unsold, mark as finalized and exit early.
     if unsold == 0 {
         config.unsold_finalized = true;
-        config.unsold_rewards_total = 0;
         emit!(UnsoldTokensFinalized {
             burned: 0,
             rewarded: 0,
@@ -101,7 +101,6 @@ pub fn process(ctx: Context<FinalizeUnsold>) -> Result<()> {
     token_interface::burn_checked(cpi_ctx, to_burn, ctx.accounts.mint.decimals)?;
 
     // update config and beneficiary allocation accounts
-    ctx.accounts.config.unsold_rewards_total = to_reward;
     ctx.accounts.config.unsold_finalized = true;
 
     ctx.accounts.beneficiary_allocation.total_tokens = ctx

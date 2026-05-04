@@ -83,9 +83,7 @@ pub fn process(
         treasury_ata_bump: ctx.bumps.treasury_ata,
         bump: ctx.bumps.config,
         total_sol_shares_bps: 0,
-        total_beneficiary_tokens: 0,
         unsold_finalized: false,
-        unsold_rewards_total: 0,
     });
 
     let treasury = &mut ctx.accounts.treasury;

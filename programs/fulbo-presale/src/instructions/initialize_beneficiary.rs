@@ -49,7 +49,7 @@ pub fn process(
     ctx: Context<InitializeBeneficiary>,
     total_tokens: u64,
     tge_unlock_bps: u16,
-    is_liquidity: bool,
+    instant_unlock: bool,
     withdraw_interval: i64,
     sol_share_bps: u16,
 ) -> Result<()> {
@@ -63,7 +63,7 @@ pub fn process(
         ErrorCode::InvalidAmount
     );
     // withdraw_interval is only meaningful for non-liquidity beneficiaries
-    if !is_liquidity {
+    if !instant_unlock {
         require!(withdraw_interval > 0, ErrorCode::InvalidAmount);
     }
 
@@ -86,14 +86,6 @@ pub fn process(
     require!(new_total_sol_shares <= 10_000, ErrorCode::InvalidAmount);
     ctx.accounts.config.total_sol_shares_bps = new_total_sol_shares;
 
-    // accumulate total beneficiary tokens for pro-rata unsold reward distribution
-    ctx.accounts.config.total_beneficiary_tokens = ctx
-        .accounts
-        .config
-        .total_beneficiary_tokens
-        .checked_add(total_tokens)
-        .ok_or(ErrorCode::MathOverflow)?;
-
     msg!("monthly_unlocked: {}", monthly_unlocked);
 
     // set beneficiary allocation account
@@ -104,7 +96,7 @@ pub fn process(
             withdrawn_tokens: 0,
             monthly_unlocked,
             tge_unlock_bps,
-            is_liquidity,
+            instant_unlock,
             bump: ctx.accounts.beneficiary_allocation.bump,
         });
 
@@ -115,7 +107,7 @@ pub fn process(
         presale_start: ctx.accounts.config.presale_start_timestamp,
         withdraw_interval,
         sol_share_bps,
-        is_liquidity,
+        instant_unlock,
         bump: ctx.accounts.treasury_share.bump,
     });
 

@@ -19,9 +19,7 @@ pub struct Config {
     pub total_tokens_sold: u64,
     pub total_tokens_claimed: u64,
 
-    pub total_beneficiary_tokens: u64,
     pub unsold_finalized: bool,
-    pub unsold_rewards_total: u64,
 
     pub total_sol_shares_bps: u16,
     pub current_stage: u8,

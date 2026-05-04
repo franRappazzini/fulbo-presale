@@ -39,7 +39,7 @@ pub fn process(ctx: Context<WithdrawTreasury>) -> Result<()> {
     let beneficiary_treasury = &mut ctx.accounts.beneficiary_treasury;
     let now = Clock::get()?.unix_timestamp;
 
-    let claim_timestamp = if beneficiary_treasury.is_liquidity {
+    let claim_timestamp = if beneficiary_treasury.instant_unlock {
         // full withdrawal, only after TGE
         let tge_timestamp = ctx.accounts.config.tge_timestamp;
         require!(
