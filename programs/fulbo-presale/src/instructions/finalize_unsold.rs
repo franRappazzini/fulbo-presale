@@ -1,8 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    token_2022::BurnChecked,
-    token_interface::{self, Mint, TokenAccount, TokenInterface},
-};
+use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface};
 
 use crate::{
     constants::{BENEFICIARY_ALLOCATION_SEED, CONFIG_SEED, TREASURY_SEED},
@@ -89,7 +86,7 @@ pub fn process(ctx: Context<FinalizeUnsold>) -> Result<()> {
     let config_bump = config.bump;
     let signer_seeds: &[&[&[u8]]] = &[&[CONFIG_SEED, &[config_bump]]];
 
-    let cpi_accounts = BurnChecked {
+    let cpi_accounts = token_interface::BurnChecked {
         mint: ctx.accounts.mint.to_account_info(),
         from: ctx.accounts.treasury_ata.to_account_info(),
         authority: ctx.accounts.config.to_account_info(),
