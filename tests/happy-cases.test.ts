@@ -119,7 +119,6 @@ describe("fulbo pre-sale", () => {
       expect(configAccount.tgeTimestamp).eq(0n);
       expect(configAccount.saleFinalized).eq(false);
       expect(configAccount.paused).eq(false);
-      logJson("config:", configAccount);
     });
   });
 
@@ -215,12 +214,6 @@ describe("fulbo pre-sale", () => {
 
         expect(alloc.totalTokens.toString()).eq(b.totalTokens.toString());
         expect(alloc.instantUnlock).eq(b.instantUnlock);
-        console.log(`  ${b.label}:`, {
-          totalTokens: alloc.totalTokens.toString(),
-          instantUnlock: alloc.instantUnlock,
-          tgeUnlockBps: alloc.tgeUnlockBps,
-          monthlyUnlocked: alloc.monthlyUnlocked.toString(),
-        });
       });
     }
   });
@@ -256,10 +249,6 @@ describe("fulbo pre-sale", () => {
 
       expect(alloc.totalTokens.toString()).eq(totalTokens.toString());
       expect(alloc.instantUnlock).eq(true);
-      console.log("  Rewards:", {
-        totalTokens: alloc.totalTokens.toString(),
-        instantUnlock: alloc.instantUnlock,
-      });
     });
   });
 
@@ -330,7 +319,6 @@ describe("fulbo pre-sale", () => {
       const configAccount = await getConfigAccount(connection);
       expect(configAccount.saleFinalized).eq(false);
       expect(configAccount.currentStage).eq(0);
-      console.log("  totalTokensSold:", configAccount.totalTokensSold.toString());
     });
 
     // Compra total: agota todos los stages, dispara sale_finalized=true automáticamente.
@@ -346,7 +334,6 @@ describe("fulbo pre-sale", () => {
 
       const configAccount = await getConfigAccount(connection);
       expect(configAccount.saleFinalized).eq(true);
-      console.log("  tgeTimestamp (auto):", configAccount.tgeTimestamp.toString());
     });
   });
 
@@ -368,7 +355,6 @@ describe("fulbo pre-sale", () => {
 
       const configAccount = await getConfigAccount(connection);
       expect(configAccount.tgeTimestamp > 0n).eq(true);
-      console.log("  tgeTimestamp:", configAccount.tgeTimestamp.toString());
 
       // SECONDS_PER_MONTH = 2s en tests — esperar 3s para que el TGE ya haya pasado
       console.log("  Esperando que pase el TGE (3s)...");
@@ -411,8 +397,6 @@ describe("fulbo pre-sale", () => {
 
       const ataBalance = await connection.getTokenAccountBalance(claimerAta);
       expect(Number(ataBalance.value.amount)).greaterThan(0);
-      console.log("  tokensClaimed:", posAccount.tokensClaimed.toString());
-      console.log("  ATA balance:", ataBalance.value.uiAmountString);
     });
   });
 
@@ -496,8 +480,6 @@ describe("fulbo pre-sale", () => {
 
         const ataBalance = await connection.getTokenAccountBalance(beneficiaryAta);
         expect(Number(ataBalance.value.amount)).greaterThan(0);
-        console.log(`  ${c.label} withdrawnTokens:`, alloc.withdrawnTokens.toString());
-        console.log(`  ${c.label} ATA balance:`, ataBalance.value.uiAmountString);
       });
     }
   });
@@ -555,14 +537,6 @@ describe("fulbo pre-sale", () => {
         );
 
         expect(share.solWithdrawn > 0n).eq(true);
-
-        const balanceAfter = await connection.getBalance(kp.publicKey);
-        console.log(`  ${w.label} solWithdrawn:`, share.solWithdrawn.toString());
-        console.log(
-          `  ${w.label} balance delta:`,
-          (balanceAfter - balanceBefore).toString(),
-          "lamports",
-        );
       });
     }
   });
@@ -609,8 +583,6 @@ describe("fulbo pre-sale", () => {
 
       // 40% del unsold debe haberse sumado al total de rewards
       expect(rewardsAllocAfter.totalTokens > rewardsAllocBefore.totalTokens).eq(true);
-      console.log("  rewardsTotalTokensAfter:", rewardsAllocAfter.totalTokens.toString());
-      logJson("  config:", configAccount);
     });
   });
 });
