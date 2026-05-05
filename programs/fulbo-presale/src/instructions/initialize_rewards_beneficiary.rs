@@ -52,7 +52,7 @@ pub fn process(ctx: Context<InitializeRewardsBeneficiary>, total_tokens: u64) ->
             // not used when instant_unlock = true, set to 10_000 as a no-op convention
             tge_unlock_bps: 10_000,
             instant_unlock: true,
-            bump: ctx.accounts.beneficiary_allocation.bump,
+            bump: ctx.bumps.beneficiary_allocation,
         });
 
     emit!(BeneficiaryInitialized {
