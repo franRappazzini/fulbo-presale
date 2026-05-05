@@ -1,4 +1,4 @@
-use anchor_lang::{prelude::*, system_program};
+use anchor_lang::prelude::*;
 
 use crate::{
     constants::{BENEFICIARY_TREASURY_SEED, CONFIG_SEED, TREASURY_SEED},
