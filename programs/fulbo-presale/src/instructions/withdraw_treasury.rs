@@ -130,25 +130,12 @@ pub fn process(ctx: Context<WithdrawTreasury>) -> Result<()> {
         .checked_add(amount_to_withdraw)
         .ok_or(ErrorCode::MathOverflow)?;
 
-    // transfer amount
-    let signer_seeds: &[&[&[u8]]] = &[&[TREASURY_SEED, &[treasury.bump]]];
+    // transfer amount (directly moving lamports because treasury is pda)
+    treasury.sub_lamports(amount_to_withdraw)?;
+    ctx.accounts.beneficiary.add_lamports(amount_to_withdraw)?;
 
-    let cpi_accounts = system_program::Transfer {
-        from: treasury.to_account_info(),
-        to: ctx.accounts.beneficiary.to_account_info(),
-    };
-
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.system_program.key(),
-        cpi_accounts,
-        signer_seeds,
-    );
-
-    system_program::transfer(cpi_ctx, amount_to_withdraw)?;
-
-    let beneficiary_key = ctx.accounts.beneficiary.key();
     emit!(TreasuryWithdrawn {
-        beneficiary: beneficiary_key,
+        beneficiary: ctx.accounts.beneficiary.key(),
         amount: amount_to_withdraw,
     });
 
