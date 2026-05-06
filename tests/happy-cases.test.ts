@@ -7,7 +7,7 @@ import {
   getAssociatedTokenAddressSync,
   mintTo,
 } from "@solana/spl-token";
-import { bn, logJson, sleep } from "./utils/functions";
+import { bn, sleep } from "./utils/functions";
 import { buyTokenForStage, getConfigAccount } from "./utils/helpers";
 import {
   findBeneficiaryAllocationPda,

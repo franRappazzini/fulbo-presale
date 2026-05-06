@@ -1,5 +1,4 @@
 import { bn } from "./utils/functions";
-import { constants } from "./utils/constants";
 
 /*
     | Stage | Target USD | Price | Tokens Sold | Locked % | Unlock |

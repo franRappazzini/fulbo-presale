@@ -1,0 +1,9 @@
+[fuzz.metrics]
+enabled = true
+dashboard = true
+
+
+[[fuzz.programs]]
+address = "4q6B6GdbbijEHxnhXVx8mDsiHfgk5b9bCVB8PqtA1bDJ"
+program = "../target/deploy/fulbo_presale.so"
+ 

@@ -7,8 +7,11 @@ test-ledger
 .yarn
 .surfpool
 
+.vscode/
 *.todo
 runbooks/
 clients/
 codama.json
 txtx.yml
+
+trident-tests/.fuzz-artifacts/
