@@ -14,6 +14,7 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
     // --- mint ---
     let mint_address = fuzz_accounts.mint.insert(trident, None);
     let mint_ixs = trident.initialize_mint(&authority, &mint_address, 6, &authority, None);
+
     let tx = trident.process_transaction(&mint_ixs, None);
     assert!(
         tx.is_success(),
@@ -119,6 +120,21 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
     assert!(
         tx.is_success(),
         "Failed to initialize Rewards Beneficiary: {:?}",
+        tx.logs()
+    );
+
+    // --- mint tokens to treasury ---
+    let transfer_ix = trident.mint_to(
+        &treasury_ata_address,
+        &mint_address,
+        &authority,
+        300_000_000_000_000,
+    ); // 300M to presale
+
+    let tx = trident.process_transaction(&[transfer_ix], None);
+    assert!(
+        tx.is_success(),
+        "Failed to mint tokens to treasury: {:?}",
         tx.logs()
     );
 }
