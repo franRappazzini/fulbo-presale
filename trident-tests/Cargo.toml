@@ -17,3 +17,14 @@ features = ["token"]
 name = "fuzz_0"
 path = "fuzz_0/test_fuzz.rs"
 
+[[bin]]
+name = "fuzz_1"
+path = "fuzz_1/test_fuzz.rs"
+
+[[bin]]
+name = "all"
+path = "all/test_fuzz.rs"
+
+[[bin]]
+name = "buy_tokens"
+path = "buy_tokens/test_fuzz.rs"

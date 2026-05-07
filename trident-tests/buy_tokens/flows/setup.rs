@@ -6,15 +6,16 @@ use crate::types::fulbo_presale;
 use crate::utils::data;
 
 /// Runs all program initialization at the start of each fuzz iteration:
-/// mint → config/treasury → 4 beneficiaries (with TreasuryShare) → rewards pool.
+/// mint → config/treasury → 4 beneficiaries (with TreasuryShare) → rewards pool
+/// → 3 buyers (A, B, C) with their position PDAs and SOL airdrops.
 pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
+    // --- authority ---
     let authority = fuzz_accounts.authority.insert(trident, None);
     trident.airdrop(&authority, LAMPORTS_PER_SOL);
 
     // --- mint ---
     let mint_address = fuzz_accounts.mint.insert(trident, None);
     let mint_ixs = trident.initialize_mint(&authority, &mint_address, 6, &authority, None);
-
     let tx = trident.process_transaction(&mint_ixs, None);
     assert!(
         tx.is_success(),
@@ -39,7 +40,7 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
         }),
     );
 
-    let treasury_ata_address = fuzz_accounts.treasury_ata.insert(
+    let treasury_ata = fuzz_accounts.treasury_ata.insert(
         trident,
         Some(PdaSeeds {
             seeds: &[constants::TREASURY_SEED, mint_address.as_ref()],
@@ -47,7 +48,7 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
         }),
     );
 
-    let chainlink_feed_address = fuzz_accounts.chainlink_feed.insert(trident, None);
+    let chainlink_feed = fuzz_accounts.chainlink_feed.insert(trident, None);
 
     // --- initialize ---
     let init_ix =
@@ -60,8 +61,8 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
             config,
             treasury,
             mint: mint_address,
-            treasury_ata: treasury_ata_address,
-            chainlink_feed: chainlink_feed_address,
+            treasury_ata,
+            chainlink_feed,
             token_program: constants::TOKEN_PROGRAM_ID,
         })
         .instruction();
@@ -73,20 +74,47 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
         tx.logs()
     );
 
-    // --- beneficiaries with TreasuryShare ---
-    let beneficiary_names = ["Team", "Marketing", "Development", "Liquidity"];
-    for (i, beneficiary_data) in data::BENEFICIARIES.iter().enumerate() {
-        init_beneficiary(
-            trident,
-            &mut fuzz_accounts.team_beneficiary,
-            &mut fuzz_accounts.team_allocation,
-            &mut fuzz_accounts.team_treasury_share,
-            beneficiary_data,
-            authority,
-            config,
-            &beneficiary_names[i],
-        );
-    }
+    // --- vested beneficiaries (each with its own TreasuryShare) ---
+    init_beneficiary(
+        trident,
+        &mut fuzz_accounts.team_beneficiary,
+        &mut fuzz_accounts.team_allocation,
+        &mut fuzz_accounts.team_treasury_share,
+        &data::BENEFICIARIES[0],
+        authority,
+        config,
+        "Team",
+    );
+    init_beneficiary(
+        trident,
+        &mut fuzz_accounts.marketing_beneficiary,
+        &mut fuzz_accounts.marketing_allocation,
+        &mut fuzz_accounts.marketing_treasury_share,
+        &data::BENEFICIARIES[1],
+        authority,
+        config,
+        "Marketing",
+    );
+    init_beneficiary(
+        trident,
+        &mut fuzz_accounts.development_beneficiary,
+        &mut fuzz_accounts.development_allocation,
+        &mut fuzz_accounts.development_treasury_share,
+        &data::BENEFICIARIES[2],
+        authority,
+        config,
+        "Development",
+    );
+    init_beneficiary(
+        trident,
+        &mut fuzz_accounts.liquidity_beneficiary,
+        &mut fuzz_accounts.liquidity_allocation,
+        &mut fuzz_accounts.liquidity_treasury_share,
+        &data::BENEFICIARIES[3],
+        authority,
+        config,
+        "Liquidity",
+    );
 
     // --- rewards pool (no TreasuryShare) ---
     let rewards_beneficiary = fuzz_accounts.rewards_beneficiary.insert(trident, None);
@@ -119,28 +147,45 @@ pub fn run(trident: &mut Trident, fuzz_accounts: &mut AccountAddresses) {
     let tx = trident.process_transaction(&[ix], Some("Initialize Rewards Beneficiary"));
     assert!(
         tx.is_success(),
-        "Failed to initialize Rewards Beneficiary: {:?}",
+        "Failed to initialize rewards beneficiary: {:?}",
         tx.logs()
     );
 
-    // --- mint tokens to treasury ---
+    // --- mint tokens to treasury (300M for presale) ---
     let transfer_ix = trident.mint_to(
-        &treasury_ata_address,
+        &treasury_ata,
         &mint_address,
         &authority,
         300_000_000_000_000,
-    ); // 300M to presale
-
+    );
     let tx = trident.process_transaction(&[transfer_ix], None);
     assert!(
         tx.is_success(),
         "Failed to mint tokens to treasury: {:?}",
         tx.logs()
     );
+
+    // --- buyers with their position PDAs ---
+    // Each buyer is funded with 100 SOL so they can make many purchases.
+    // Their positions are PDA-derived: [POSITION_SEED, buyer_pubkey].
+    setup_buyer(
+        trident,
+        &mut fuzz_accounts.buyer_a,
+        &mut fuzz_accounts.position_a,
+    );
+    setup_buyer(
+        trident,
+        &mut fuzz_accounts.buyer_b,
+        &mut fuzz_accounts.position_b,
+    );
+    setup_buyer(
+        trident,
+        &mut fuzz_accounts.buyer_c,
+        &mut fuzz_accounts.position_c,
+    );
 }
 
-/// Initializes a vested beneficiary (with TreasuryShare) and stores the resulting
-/// addresses into the provided `AddressStorage` fields so flows can reuse them.
+/// Initializes a vested beneficiary (with TreasuryShare) and stores the addresses.
 fn init_beneficiary(
     trident: &mut Trident,
     beneficiary_storage: &mut AddressStorage,
@@ -193,5 +238,23 @@ fn init_beneficiary(
         "Failed to initialize {} beneficiary: {:?}",
         label,
         tx.logs()
+    );
+}
+
+/// Creates a buyer keypair, airdrops 100 SOL, and stores its position PDA.
+fn setup_buyer(
+    trident: &mut Trident,
+    buyer_storage: &mut AddressStorage,
+    position_storage: &mut AddressStorage,
+) {
+    let buyer = buyer_storage.insert(trident, None);
+    trident.airdrop(&buyer, 100 * LAMPORTS_PER_SOL);
+
+    position_storage.insert(
+        trident,
+        Some(PdaSeeds {
+            seeds: &[constants::POSITION_SEED, buyer.as_ref()],
+            program_id: fulbo_presale::program_id(),
+        }),
     );
 }
