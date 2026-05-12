@@ -97,7 +97,7 @@ pub fn process(
             monthly_unlocked,
             tge_unlock_bps,
             instant_unlock,
-            bump: ctx.accounts.beneficiary_allocation.bump,
+            bump: ctx.bumps.beneficiary_allocation,
         });
 
     // set treasury share account
@@ -108,7 +108,7 @@ pub fn process(
         withdraw_interval,
         sol_share_bps,
         instant_unlock,
-        bump: ctx.accounts.treasury_share.bump,
+        bump: ctx.bumps.treasury_share,
     });
 
     emit!(BeneficiaryInitialized {

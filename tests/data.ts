@@ -112,3 +112,8 @@ export const stages = [
     maxWalletPctBps: 500,
   },
 ];
+
+export const stagesWithoutLimit = stages.map((stage) => ({
+  ...stage,
+  maxWalletPctBps: 10_000, // 100%
+}));
